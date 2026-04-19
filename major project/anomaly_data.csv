@@ -1,0 +1,6 @@
+﻿device_id,cpu_usage_percent,memory_usage_percent,bandwidth_mbps,packet_loss_percent,latency_ms
+router_01,95,60,700,2,35
+switch_02,45,55,500,0.5,20
+server_03,98,90,800,8,200
+firewall_04,88,70,600,3,150
+load_balancer_05,50,45,550,1,25

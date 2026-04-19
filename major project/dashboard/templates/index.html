@@ -1,0 +1,305 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Network ML Dashboard - Auto Healing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🌩️ Cloud Network ML Monitoring Dashboard</h1>
+        <h2>🤖 Auto-Healing System Active</h2>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h3>System Health</h3>
+                <div class="metric-value" id="health-status">Loading...</div>
+            </div>
+            <div class="metric-card">
+                <h3>Active Alerts</h3>
+                <div class="metric-value" id="alert-count">0</div>
+            </div>
+            <div class="metric-card">
+                <h3>Network Devices</h3>
+                <div class="metric-value" id="device-count">0</div>
+            </div>
+            <div class="metric-card">
+                <h3>Anomaly Rate</h3>
+                <div class="metric-value" id="anomaly-rate">0%</div>
+            </div>
+            <div class="metric-card">
+                <h3>Auto-Heal Status</h3>
+                <div class="metric-value" id="heal-status">Active</div>
+            </div>
+            <div class="metric-card">
+                <h3>Healing Actions</h3>
+                <div class="metric-value" id="heal-count">0</div>
+            </div>
+        </div>
+        
+        <!-- Input Form Section -->
+        <div class="input-section">
+            <h2>📊 Insert Network Data</h2>
+            <div class="input-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Device ID:</label>
+                        <select id="device_id">
+                            <option value="router_01">router_01</option>
+                            <option value="switch_02">switch_02</option>
+                            <option value="server_03">server_03</option>
+                            <option value="firewall_04">firewall_04</option>
+                            <option value="load_balancer_05">load_balancer_05</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>CPU Usage (%):</label>
+                        <input type="number" id="cpu" step="0.1" value="45">
+                    </div>
+                    <div class="form-group">
+                        <label>Memory Usage (%):</label>
+                        <input type="number" id="memory" step="0.1" value="55">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Bandwidth (Mbps):</label>
+                        <input type="number" id="bandwidth" step="1" value="500">
+                    </div>
+                    <div class="form-group">
+                        <label>Packet Loss (%):</label>
+                        <input type="number" id="packet_loss" step="0.1" value="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label>Latency (ms):</label>
+                        <input type="number" id="latency" step="1" value="20">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <button onclick="insertData()">➕ Insert Data</button>
+                    <button onclick="insertAnomaly()">⚠️ Insert Anomaly (Test Healing)</button>
+                    <button onclick="toggleAutoHeal()">🔄 Toggle Auto-Heal</button>
+                    <button onclick="refreshData()">🔄 Refresh Dashboard</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Healing Log Section -->
+        <div class="healing-section">
+            <h2>🔧 Recent Healing Actions</h2>
+            <div id="healing-log" class="healing-log">
+                <p>No healing actions yet...</p>
+            </div>
+        </div>
+        
+        <div class="charts-container">
+            <div class="chart-box">
+                <div id="anomaly-chart"></div>
+            </div>
+            <div class="chart-box">
+                <div id="fault-distribution"></div>
+            </div>
+        </div>
+        
+        <div class="alerts-section">
+            <h2>🚨 Recent Alerts</h2>
+            <div id="alerts-list" class="alerts-list">
+                <p>No alerts yet...</p>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="startAutoRefresh()">▶️ Auto Refresh (5s)</button>
+            <button onclick="stopAutoRefresh()">⏹️ Stop Refresh</button>
+            <button onclick="clearAlerts()">🗑️ Clear Alerts</button>
+        </div>
+    </div>
+    
+    <style>
+        .healing-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            border-radius: 15px;
+            color: white;
+        }
+        .healing-log {
+            max-height: 150px;
+            overflow-y: auto;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            padding: 10px;
+        }
+        .healing-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        .button-success {
+            background: #2ecc71 !important;
+        }
+        .button-warning {
+            background: #e74c3c !important;
+        }
+    </style>
+    
+    <script>
+        var refreshInterval = null;
+        
+        async function insertData() {
+            const data = {
+                device_id: document.getElementById('device_id').value,
+                cpu_usage_percent: parseFloat(document.getElementById('cpu').value),
+                memory_usage_percent: parseFloat(document.getElementById('memory').value),
+                bandwidth_mbps: parseFloat(document.getElementById('bandwidth').value),
+                packet_loss_percent: parseFloat(document.getElementById('packet_loss').value),
+                latency_ms: parseFloat(document.getElementById('latency').value)
+            };
+            
+            const response = await fetch('/api/insert_data', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            
+            if (result.auto_healed) {
+                alert('🔧 ANOMALY DETECTED & AUTO-HEALED!\n\n' + result.healing_message);
+            } else if (result.is_anomaly) {
+                alert('⚠️ Anomaly detected! Auto-healing applied: ' + result.healing_message);
+            } else {
+                alert('✓ Data inserted successfully');
+            }
+            
+            refreshData();
+        }
+        
+        async function insertAnomaly() {
+            const data = {
+                device_id: document.getElementById('device_id').value,
+                cpu_usage_percent: Math.random() * 30 + 85,
+                memory_usage_percent: Math.random() * 20 + 80,
+                bandwidth_mbps: Math.random() * 500 + 700,
+                packet_loss_percent: Math.random() * 15 + 5,
+                latency_ms: Math.random() * 200 + 100
+            };
+            
+            document.getElementById('cpu').value = data.cpu_usage_percent.toFixed(1);
+            document.getElementById('memory').value = data.memory_usage_percent.toFixed(1);
+            document.getElementById('bandwidth').value = Math.round(data.bandwidth_mbps);
+            document.getElementById('packet_loss').value = data.packet_loss_percent.toFixed(1);
+            document.getElementById('latency').value = Math.round(data.latency_ms);
+            
+            const response = await fetch('/api/insert_data', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            
+            if (result.auto_healed) {
+                alert('🔧 ANOMALY AUTO-HEALED!\n\n' + result.healing_message);
+            } else {
+                alert('⚠️ Anomaly inserted and fixed!');
+            }
+            
+            refreshData();
+        }
+        
+        async function toggleAutoHeal() {
+            const response = await fetch('/api/toggle_auto_heal', { method: 'POST' });
+            const result = await response.json();
+            const status = result.auto_heal_enabled ? 'ACTIVE' : 'DISABLED';
+            alert('Auto-Healing is now ' + status);
+            refreshData();
+        }
+        
+        async function refreshData() {
+            try {
+                const response = await fetch('/api/dashboard');
+                const data = await response.json();
+                updateDashboard(data);
+                
+                // Get healing log
+                const healResponse = await fetch('/api/get_healing_log');
+                const healData = await healResponse.json();
+                updateHealingLog(healData.healing_log);
+                
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+        
+        function updateHealingLog(log) {
+            var logHtml = '';
+            if (!log || log.length === 0) {
+                logHtml = '<p>No healing actions yet...</p>';
+            } else {
+                log.reverse().forEach(function(item) {
+                    logHtml += '<div class="healing-item">';
+                    logHtml += '<strong>' + item.timestamp + '</strong><br>';
+                    logHtml += '🔧 ' + item.action;
+                    logHtml += '</div>';
+                });
+            }
+            document.getElementById('healing-log').innerHTML = logHtml;
+            document.getElementById('heal-count').innerHTML = log.length;
+        }
+        
+        async function clearAlerts() {
+            try {
+                await fetch('/api/clear_alerts', { method: 'POST' });
+                refreshData();
+            } catch (error) {
+                console.error('Error clearing alerts:', error);
+            }
+        }
+        
+        function startAutoRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(refreshData, 5000);
+            alert('Auto refresh started (every 5 seconds)');
+        }
+        
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+                alert('Auto refresh stopped');
+            }
+        }
+        
+        function updateDashboard(data) {
+            document.getElementById('health-status').innerHTML = data.health_status;
+            document.getElementById('alert-count').innerHTML = data.alert_count;
+            document.getElementById('device-count').innerHTML = data.device_count;
+            document.getElementById('anomaly-rate').innerHTML = data.anomaly_rate + '%';
+            document.getElementById('heal-status').innerHTML = data.auto_heal_enabled ? '🟢 ACTIVE' : '🔴 DISABLED';
+            
+            Plotly.newPlot('anomaly-chart', data.anomaly_chart.data, data.anomaly_chart.layout);
+            Plotly.newPlot('fault-distribution', data.fault_chart.data, data.fault_chart.layout);
+            
+            var alertsHtml = '';
+            if (data.alerts.length === 0) {
+                alertsHtml = '<p>No alerts yet...</p>';
+            } else {
+                data.alerts.forEach(function(alert) {
+                    alertsHtml += '<div class="alert-item ' + alert.severity + '">';
+                    alertsHtml += '<strong>' + alert.timestamp + '</strong> - ';
+                    alertsHtml += alert.message;
+                    alertsHtml += '</div>';
+                });
+            }
+            document.getElementById('alerts-list').innerHTML = alertsHtml;
+        }
+        
+        refreshData();
+        startAutoRefresh();
+    </script>
+</body>
+</html>
